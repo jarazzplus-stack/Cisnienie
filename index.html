@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ciśnienie">
+<title>Ciśnienie krwi</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f7f5f0; --surface: #ffffff; --surface2: #f0ede8;
+    --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.14);
+    --text: #1a1814; --text2: #6b6860; --text3: #9e9b95;
+    --accent: #c0392b; --accent-soft: #fdf0ef;
+    --green: #27806a; --green-soft: #edf7f4;
+    --amber: #b7670a; --amber-soft: #fef8ed;
+    --blue: #1a6fa8; --blue-soft: #eef5fc;
+    --radius: 14px; --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110; --surface: #1c1b1a; --surface2: #252422;
+      --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+      --text: #f0ede8; --text2: #9e9b95; --text3: #6b6860;
+      --accent: #e05545; --accent-soft: #2a1a18;
+      --green: #3aab8e; --green-soft: #0f2420;
+      --amber: #e08c2a; --amber-soft: #251a0a;
+      --blue: #4a9fd4; --blue-soft: #0d1e2e;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5; }
+  .app { display: flex; flex-direction: column; height: 100vh; height: -webkit-fill-available; max-width: 430px; margin: 0 auto; }
+  .header { padding: env(safe-area-inset-top, 44px) 20px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .header-inner { display: flex; align-items: center; justify-content: space-between; }
+  .app-title { font-size: 22px; font-weight: 500; letter-spacing: -0.3px; }
+  .app-title span { color: var(--accent); }
+  .header-date { font-size: 12px; color: var(--text3); margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .heart-icon { width: 38px; height: 38px; background: var(--accent-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab { flex: 1; padding: 12px 4px; font-size: 13px; font-weight: 400; color: var(--text3); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; font-family: 'DM Sans', sans-serif; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+  .scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(env(safe-area-inset-bottom, 20px) + 16px); }
+  .section { display: none; }
+  .section.active { display: block; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .card-label { font-size: 10px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+  .card-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .card-label-row .card-label { margin-bottom: 0; }
+  .card-hint { font-size: 10px; color: var(--text3); font-style: italic; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--text2); }
+  input[type=number], input[type=text], select, textarea {
+    width: 100%; padding: 10px 12px; font-size: 16px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border2); background: var(--surface2); color: var(--text);
+    font-family: 'DM Sans', sans-serif; outline: none; -webkit-appearance: none; appearance: none; transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: none; font-size: 14px; min-height: 64px; line-height: 1.5; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .preview { display: none; background: var(--surface2); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; border: 1px solid var(--border); }
+  .preview.visible { display: block; }
+  .bp-big { font-family: 'DM Mono', monospace; font-size: 36px; font-weight: 500; letter-spacing: -1px; }
+  .bp-sep { font-size: 24px; color: var(--text3); margin: 0 4px; }
+  .bp-unit { font-size: 13px; color: var(--text2); margin-left: 6px; }
+  .bp-row { display: flex; align-items: baseline; }
+  .status-pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 500; margin-top: 6px; }
+  .st-ok { background: var(--green-soft); color: var(--green); }
+  .st-warn { background: var(--amber-soft); color: var(--amber); }
+  .st-high { background: var(--accent-soft); color: var(--accent); }
+  .st-low { background: var(--blue-soft); color: var(--blue); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { padding: 6px 12px; border-radius: 99px; border: 1px solid var(--border2); font-size: 12px; color: var(--text2); cursor: pointer; background: none; font-family: 'DM Sans', sans-serif; transition: all .12s; line-height: 1; }
+  .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity .1s; margin-top: 4px; }
+  .btn-primary:active { opacity: .85; }
+  .btn-sec { padding: 9px 14px; background: var(--surface2); color: var(--text); border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  .btn-sec:active { background: var(--border); }
+  .btn-import { padding: 9px 14px; background: var(--blue-soft); color: var(--blue); border: 1px solid var(--blue); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; font-weight: 500; }
+  .btn-import:active { opacity: .8; }
+  .city-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .city-row input { flex: 1; }
+  .atm-note { font-size: 12px; color: var(--text3); min-height: 18px; margin-bottom: 8px; }
+  .atm-manual { display: flex; flex-direction: column; gap: 5px; }
+  .atm-manual label { font-size: 12px; color: var(--text2); }
+  .save-msg { text-align: center; font-size: 13px; color: var(--green); padding: 10px; display: none; font-weight: 500; }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; text-align: center; box-shadow: var(--shadow); }
+  .stat-label { font-size: 10px; color: var(--text3); margin-bottom: 2px; }
+  .stat-val { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; }
+  .stat-sub { font-size: 9px; color: var(--text3); }
+  .filter-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .filter-row span { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  .filter-row select { flex: 1; font-size: 13px; padding: 7px 10px; }
+  .io-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .import-msg { font-size: 12px; padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 10px; display: none; }
+  .import-msg.ok { background: var(--green-soft); color: var(--green); }
+  .import-msg.err { background: var(--accent-soft); color: var(--accent); }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 340px; }
+  th { font-size: 10px; font-weight: 500; color: var(--text3); padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 9px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+  .b-ok { background: var(--green-soft); color: var(--green); }
+  .b-warn { background: var(--amber-soft); color: var(--amber); }
+  .b-high { background: var(--accent-soft); color: var(--accent); }
+  .b-low { background: var(--blue-soft); color: var(--blue); }
+  .del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 2px 6px; }
+  .del-btn:active { color: var(--accent); }
+  .period-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .period-btn { padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border2); font-size: 12px; background: none; cursor: pointer; color: var(--text2); font-family: 'DM Sans', sans-serif; transition: all .12s; }
+  .period-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .legend-row { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .leg-sq { width: 10px; height: 10px; border-radius: 2px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .chart-title { font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 10px; }
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; line-height: 1.7; }
+  .empty-icon { font-size: 32px; margin-bottom: 10px; }
+  #csv-file-input { display: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-inner">
+      <div>
+        <div class="app-title">Ciśnienie <span>♥</span></div>
+        <div class="header-date" id="hdr-date"></div>
+      </div>
+      <div class="heart-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 21C12 21 3 14 3 8.5C3 5.42 5.42 3 8.5 3C10.24 3 11.91 3.81 13 5.08C14.09 3.81 15.76 3 17.5 3C20.58 3 23 5.42 23 8.5C23 14 14 21 12 21Z" fill="var(--accent)" opacity=".9"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('add')">Nowy pomiar</button>
+    <button class="tab" onclick="showTab('list')">Historia</button>
+    <button class="tab" onclick="showTab('chart')">Wykres</button>
+  </div>
+
+  <div class="scroll-area">
+
+    <!-- ADD -->
+    <div class="section active" id="tab-add">
+      <div class="card">
+        <div class="card-label">Ciśnienie i tętno</div>
+        <div class="grid3">
+          <div class="field">
+            <label>Skurczowe</label>
+            <input type="number" id="sys" placeholder="120" min="60" max="250" inputmode="numeric" oninput="updatePreview()">
+          </div>
+          <div class="field">
+            <label>Rozkurczowe</label>
+            <input type="number" id="dia" placeholder="80" min="40" max="150" inputmode="numeric" oninput="updatePreview()">
+          </div>
+          <div class="field">
+            <label>Tętno</label>
+            <input type="number" id="pulse" placeholder="72" min="30" max="220" inputmode="numeric">
+          </div>
+        </div>
+        <div class="preview" id="preview">
+          <div class="bp-row">
+            <span class="bp-big" id="p-sys">--</span>
+            <span class="bp-sep">/</span>
+            <span class="bp-big" id="p-dia">--</span>
+            <span class="bp-unit">mmHg</span>
+          </div>
+          <span class="status-pill" id="p-status"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Ciśnienie atmosferyczne (opcjonalnie)</div>
+        <div class="city-row">
+          <input type="text" id="city-input" placeholder="Wpisz miasto, np. Łódź" autocomplete="off" autocorrect="off" spellcheck="false">
+          <button class="btn-sec" onclick="fetchByCity()">Pobierz</button>
+        </div>
+        <div class="atm-note" id="atm-note"></div>
+        <div class="atm-manual">
+          <label>Lub wpisz ręcznie (hPa)</label>
+          <input type="number" id="atm" placeholder="np. 1013" min="950" max="1070" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label-row">
+          <span class="card-label">Uwagi</span>
+          <span class="card-hint">zapamiętane · odznacz jeśli inne</span>
+        </div>
+        <div class="chips" id="chips">
+          <button class="chip" onclick="toggleChip(this)">Lewa ręka</button>
+          <button class="chip" onclick="toggleChip(this)">Prawa ręka</button>
+          <button class="chip" onclick="toggleChip(this)">Siedząca</button>
+          <button class="chip" onclick="toggleChip(this)">Leżąca</button>
+          <button class="chip" onclick="toggleChip(this)">Przed śniadaniem</button>
+          <button class="chip" onclick="toggleChip(this)">Po śniadaniu</button>
+          <button class="chip" onclick="toggleChip(this)">Rano</button>
+          <button class="chip" onclick="toggleChip(this)">Wieczór</button>
+          <button class="chip" onclick="toggleChip(this)">Po wysiłku</button>
+          <button class="chip" onclick="toggleChip(this)">Po lekach</button>
+          <button class="chip" onclick="toggleChip(this)">Przed lekami</button>
+          <button class="chip" onclick="toggleChip(this)">Stres</button>
+        </div>
+        <textarea id="note-extra" placeholder="Dodatkowe uwagi..."></textarea>
+      </div>
+
+      <button class="btn-primary" onclick="saveReading()">Zapisz pomiar</button>
+      <div class="save-msg" id="save-msg">✓ Pomiar zapisany</div>
+    </div>
+
+    <!-- LIST -->
+    <div class="section" id="tab-list">
+      <div class="stats-grid" id="stats-grid" style="display:none"></div>
+      <div class="filter-row">
+        <span>Pokaż:</span>
+        <select id="filter-sel" onchange="renderList()">
+          <option value="all">Wszystkie</option>
+          <option value="7">Ostatnie 7 dni</option>
+          <option value="30">Ostatnie 30 dni</option>
+          <option value="90">Ostatnie 90 dni</option>
+        </select>
+      </div>
+
+      <!-- EKSPORT / IMPORT -->
+      <div class="io-row">
+        <button class="btn-sec" onclick="exportCSV()">⬇ Eksport CSV</button>
+        <button class="btn-sec" onclick="exportXLS()">⬇ Eksport XLS</button>
+        <button class="btn-import" onclick="document.getElementById('csv-file-input').click()">⬆ Import CSV</button>
+      </div>
+      <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="importCSV(event)">
+      <div class="import-msg" id="import-msg"></div>
+
+      <div class="card" style="padding: 4px 0 0;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Data / Godz.</th><th>Sys</th><th>Dia</th><th>Tętno</th><th>hPa</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="readings-body">
+              <tr><td colspan="7"><div class="empty"><div class="empty-icon">🫀</div>Brak pomiarów.<br>Dodaj pierwszy pomiar!</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="section" id="tab-chart">
+      <div class="period-row">
+        <button class="period-btn on" onclick="setPeriod(7,this)">7 dni</button>
+        <button class="period-btn" onclick="setPeriod(14,this)">14 dni</button>
+        <button class="period-btn" onclick="setPeriod(30,this)">Miesiąc</button>
+        <button class="period-btn" onclick="setPeriod(90,this)">3 miesiące</button>
+      </div>
+      <div class="legend-row">
+        <span class="leg"><span class="leg-sq" style="background:#c0392b"></span>Skurczowe</span>
+        <span class="leg"><span class="leg-sq" style="background:#27806a"></span>Rozkurczowe</span>
+        <span class="leg"><span class="leg-sq" style="background:#9b59b6"></span>Tętno</span>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Ciśnienie krwi</div>
+        <div style="position:relative;width:100%;height:220px;">
+          <canvas id="bpChart"></canvas>
+        </div>
+      </div>
+      <div id="atm-wrap" style="display:none">
+        <div class="chart-card">
+          <div class="chart-title">Ciśnienie atmosferyczne (hPa)</div>
+          <div style="position:relative;width:100%;height:130px;">
+            <canvas id="atmChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div id="chart-empty" class="empty" style="display:none">
+        <div class="empty-icon">📊</div>Dodaj co najmniej 2 pomiary,<br>aby zobaczyć wykres.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const KEY = 'bp_v2', KEY_CHIPS = 'bp_chips', KEY_CITY = 'bp_city';
+let readings = [], bpChart = null, atmChart = null, chartDays = 7;
+
+function load() { try { readings = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { readings = []; } }
+function persist() { localStorage.setItem(KEY, JSON.stringify(readings)); }
+function fmtDate(iso) { return new Date(iso).toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'2-digit'}); }
+function fmtTime(iso) { return new Date(iso).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}); }
+function today() { return new Date().toISOString().slice(0,10); }
+
+// ---- CHIPS ----
+function saveChips() {
+  const active = [...document.querySelectorAll('#chips .chip.on')].map(c => c.textContent);
+  localStorage.setItem(KEY_CHIPS, JSON.stringify(active));
+}
+function restoreChips() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY_CHIPS) || '[]');
+    document.querySelectorAll('#chips .chip').forEach(c => { if(saved.includes(c.textContent)) c.classList.add('on'); });
+  } catch(e) {}
+}
+function toggleChip(el) { el.classList.toggle('on'); saveChips(); }
+
+// ---- STATUS ----
+function getStatus(sys, dia) {
+  if(sys < 90 || dia < 60) return {label:'Niskie', cls:'st-low', badge:'b-low'};
+  if(sys < 120 && dia < 80) return {label:'Optymalne', cls:'st-ok', badge:'b-ok'};
+  if(sys < 130 && dia < 85) return {label:'Prawidłowe', cls:'st-ok', badge:'b-ok'};
+  if(sys < 140 && dia < 90) return {label:'Wys. prawidłowe', cls:'st-warn', badge:'b-warn'};
+  return {label:'Nadciśnienie', cls:'st-high', badge:'b-high'};
+}
+
+function updatePreview() {
+  const sys = parseInt(document.getElementById('sys').value);
+  const dia = parseInt(document.getElementById('dia').value);
+  const prev = document.getElementById('preview');
+  if(sys && dia) {
+    prev.classList.add('visible');
+    document.getElementById('p-sys').textContent = sys;
+    document.getElementById('p-dia').textContent = dia;
+    const st = getStatus(sys, dia);
+    const el = document.getElementById('p-status');
+    el.textContent = st.label; el.className = 'status-pill ' + st.cls;
+  } else prev.classList.remove('visible');
+}
+
+// ---- ATM ----
+async function fetchByCity() {
+  const city = document.getElementById('city-input').value.trim();
+  const note = document.getElementById('atm-note');
+  if(!city) { note.textContent = 'Wpisz nazwę miasta'; return; }
+  note.textContent = '⏳ Pobieranie danych…';
+  try {
+    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pl&format=json`);
+    const geoData = await geoRes.json();
+    if(!geoData.results?.length) { note.textContent = '❌ Nie znaleziono miasta'; return; }
+    const { latitude, longitude, name, country } = geoData.results[0];
+    const wxRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=surface_pressure&forecast_days=1&timezone=auto`);
+    const wxData = await wxRes.json();
+    const pressure = wxData.hourly?.surface_pressure?.[new Date().getHours()];
+    if(pressure) {
+      const p = Math.round(pressure);
+      document.getElementById('atm').value = p;
+      note.textContent = `✓ ${p} hPa — ${name}, ${country}`;
+      localStorage.setItem(KEY_CITY, city);
+    } else { note.textContent = '❌ Brak danych pogodowych'; }
+  } catch(e) { note.textContent = '❌ Błąd połączenia z siecią'; }
+}
+
+// ---- SAVE ----
+function saveReading() {
+  const sys = parseInt(document.getElementById('sys').value);
+  const dia = parseInt(document.getElementById('dia').value);
+  const pulse = parseInt(document.getElementById('pulse').value);
+  if(!sys || !dia || !pulse) { alert('Uzupełnij ciśnienie skurczowe, rozkurczowe i tętno.'); return; }
+  const chips = [...document.querySelectorAll('#chips .chip.on')].map(c => c.textContent);
+  const extra = document.getElementById('note-extra').value.trim();
+  const notes = [...chips, ...(extra ? [extra] : [])].join(', ');
+  const atm = parseInt(document.getElementById('atm').value) || null;
+  readings.unshift({ id: Date.now(), date: new Date().toISOString(), sys, dia, pulse, atm, notes });
+  persist();
+  ['sys','dia','pulse','atm','note-extra'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('preview').classList.remove('visible');
+  document.getElementById('atm-note').textContent = '';
+  const msg = document.getElementById('save-msg');
+  msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 2000);
+}
+
+// ---- IMPORT CSV ----
+function importCSV(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result.replace(/^\uFEFF/, ''); // usuń BOM
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if(lines.length < 2) { showImportMsg('❌ Plik jest pusty lub nieprawidłowy.', 'err'); return; }
+
+    const header = lines[0].toLowerCase();
+    // sprawdź czy to nasz format
+    if(!header.includes('skurczowe') && !header.includes('sys')) {
+      showImportMsg('❌ Nierozpoznany format pliku CSV.', 'err'); return;
+    }
+
+    // wykryj separator (przecinek lub średnik)
+    const sep = lines[0].includes(';') ? ';' : ',';
+
+    let imported = 0, skipped = 0, duplicates = 0;
+    const existingIds = new Set(readings.map(r => r.id));
+
+    for(let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if(!line) continue;
+
+      // obsłuż cudzysłowy w CSV
+      const cols = parseCSVLine(line, sep);
+      if(cols.length < 4) { skipped++; continue; }
+
+      // kolumny: Data, Godzina, Sys, Dia, Tętno, hPa, Uwagi, Status
+      const [datePart, timePart, sysRaw, diaRaw, pulseRaw, atmRaw, notesRaw] = cols;
+
+      const sys = parseInt(sysRaw);
+      const dia = parseInt(diaRaw);
+      const pulse = parseInt(pulseRaw);
+      if(!sys || !dia || !pulse || isNaN(sys) || isNaN(dia) || isNaN(pulse)) { skipped++; continue; }
+      if(sys < 50 || sys > 300 || dia < 30 || dia > 200 || pulse < 20 || pulse > 300) { skipped++; continue; }
+
+      // parsuj datę — format DD.MM.YY lub DD.MM.YYYY
+      let dateObj = parsePolishDate(datePart, timePart);
+      if(!dateObj) { skipped++; continue; }
+
+      const atm = parseInt(atmRaw) || null;
+      const notes = (notesRaw || '').replace(/^"|"$/g, '').trim();
+
+      // unikalny id na podstawie daty+wartości (żeby uniknąć duplikatów przy wielokrotnym imporcie)
+      const id = dateObj.getTime();
+      if(existingIds.has(id)) { duplicates++; continue; }
+
+      existingIds.add(id);
+      readings.push({ id, date: dateObj.toISOString(), sys, dia, pulse, atm: atm || null, notes });
+      imported++;
+    }
+
+    // posortuj od najnowszych
+    readings.sort((a, b) => new Date(b.date) - new Date(a.date));
+    persist();
+    renderList();
+
+    let msg = `✓ Zaimportowano ${imported} pomiarów.`;
+    if(duplicates > 0) msg += ` Pominięto ${duplicates} duplikatów.`;
+    if(skipped > 0) msg += ` Błędnych wierszy: ${skipped}.`;
+    showImportMsg(msg, 'ok');
+  };
+  reader.readAsText(file, 'UTF-8');
+  // wyczyść input żeby można było zaimportować ten sam plik ponownie
+  event.target.value = '';
+}
+
+function parseCSVLine(line, sep) {
+  const result = [];
+  let current = '', inQuotes = false;
+  for(let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if(ch === '"') { inQuotes = !inQuotes; }
+    else if(ch === sep && !inQuotes) { result.push(current.trim()); current = ''; }
+    else { current += ch; }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function parsePolishDate(datePart, timePart) {
+  if(!datePart) return null;
+  // format DD.MM.YY lub DD.MM.YYYY
+  const parts = datePart.split('.');
+  if(parts.length !== 3) return null;
+  let [day, month, year] = parts.map(p => parseInt(p));
+  if(year < 100) year += 2000;
+  if(!day || !month || !year) return null;
+
+  let hours = 0, minutes = 0;
+  if(timePart) {
+    const tp = timePart.replace(/[^0-9:]/g, '');
+    const tparts = tp.split(':');
+    hours = parseInt(tparts[0]) || 0;
+    minutes = parseInt(tparts[1]) || 0;
+  }
+  const d = new Date(year, month - 1, day, hours, minutes, 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function showImportMsg(text, type) {
+  const el = document.getElementById('import-msg');
+  el.textContent = text;
+  el.className = 'import-msg ' + type;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 5000);
+}
+
+// ---- LIST ----
+function getFiltered() {
+  const val = document.getElementById('filter-sel').value;
+  if(val === 'all') return readings;
+  const cutoff = Date.now() - parseInt(val) * 864e5;
+  return readings.filter(r => new Date(r.date).getTime() >= cutoff);
+}
+
+function renderStats(data) {
+  const grid = document.getElementById('stats-grid');
+  if(!data.length) { grid.style.display = 'none'; return; }
+  const avg = arr => Math.round(arr.reduce((a,b) => a+b, 0) / arr.length);
+  grid.style.display = 'grid';
+  grid.innerHTML = `
+    <div class="stat-card"><div class="stat-label">Śr. skurczowe</div><div class="stat-val">${avg(data.map(r=>r.sys))}</div><div class="stat-sub">mmHg</div></div>
+    <div class="stat-card"><div class="stat-label">Śr. rozkurczowe</div><div class="stat-val">${avg(data.map(r=>r.dia))}</div><div class="stat-sub">mmHg</div></div>
+    <div class="stat-card"><div class="stat-label">Śr. tętno</div><div class="stat-val">${avg(data.map(r=>r.pulse))}</div><div class="stat-sub">bpm</div></div>`;
+}
+
+function renderList() {
+  const data = getFiltered();
+  renderStats(data);
+  const tbody = document.getElementById('readings-body');
+  if(!data.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🫀</div>Brak pomiarów w wybranym okresie.</div></td></tr>'; return; }
+  tbody.innerHTML = data.map(r => {
+    const st = getStatus(r.sys, r.dia);
+    const title = r.notes ? ` title="${r.notes}"` : '';
+    return `<tr${title}>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${fmtDate(r.date)}<br>${fmtTime(r.date)}</td>
+      <td style="font-weight:500;font-family:'DM Mono',monospace">${r.sys}</td>
+      <td style="font-weight:500;font-family:'DM Mono',monospace">${r.dia}</td>
+      <td style="font-family:'DM Mono',monospace">${r.pulse}</td>
+      <td style="color:var(--text3)">${r.atm||'—'}</td>
+      <td><span class="badge ${st.badge}">${st.label.split(' ')[0]}</span></td>
+      <td><button class="del-btn" onclick="delReading(${r.id})">×</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function delReading(id) {
+  if(!confirm('Usunąć ten pomiar?')) return;
+  readings = readings.filter(r => r.id !== id);
+  persist(); renderList();
+}
+
+// ---- TABS ----
+function showTab(t) {
+  document.querySelectorAll('.tab').forEach((b,i) => b.classList.toggle('active', ['add','list','chart'][i] === t));
+  document.querySelectorAll('.section').forEach((s,i) => s.classList.toggle('active', ['tab-add','tab-list','tab-chart'][i] === 'tab-'+t));
+  if(t === 'list') renderList();
+  if(t === 'chart') renderChart();
+}
+
+// ---- CHART ----
+function setPeriod(d, btn) {
+  chartDays = d;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderChart();
+}
+
+function renderChart() {
+  const cutoff = Date.now() - chartDays * 864e5;
+  const data = readings.filter(r => new Date(r.date).getTime() >= cutoff).slice().reverse();
+  const empty = document.getElementById('chart-empty');
+  if(data.length < 2) {
+    empty.style.display = 'block';
+    document.getElementById('atm-wrap').style.display = 'none';
+    if(bpChart) { bpChart.destroy(); bpChart = null; }
+    return;
+  }
+  empty.style.display = 'none';
+  const labels = data.map(r => fmtDate(r.date) + '\n' + fmtTime(r.date));
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const tickColor = isDark ? '#6b6860' : '#9e9b95';
+  if(bpChart) bpChart.destroy();
+  bpChart = new Chart(document.getElementById('bpChart'), {
+    type:'line',
+    data:{ labels, datasets:[
+      {label:'Skurczowe', data:data.map(r=>r.sys), borderColor:'#c0392b', borderWidth:2, pointRadius:3, pointBackgroundColor:'#c0392b', tension:.3, fill:false},
+      {label:'Rozkurczowe', data:data.map(r=>r.dia), borderColor:'#27806a', borderWidth:2, pointRadius:3, pointBackgroundColor:'#27806a', tension:.3, fill:false},
+      {label:'Tętno', data:data.map(r=>r.pulse), borderColor:'#9b59b6', borderWidth:1.5, pointRadius:2.5, pointBackgroundColor:'#9b59b6', tension:.3, fill:false, borderDash:[4,3]}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y}${ctx.datasetIndex<2?' mmHg':' bpm'}`}}},
+      scales:{x:{ticks:{font:{size:9},color:tickColor,maxRotation:45,autoSkip:true,maxTicksLimit:8},grid:{color:gridColor}},y:{ticks:{font:{size:10},color:tickColor},grid:{color:gridColor}}}
+    }
+  });
+  const atmData = data.filter(r => r.atm);
+  const atmWrap = document.getElementById('atm-wrap');
+  if(atmData.length >= 2) {
+    atmWrap.style.display = 'block';
+    if(atmChart) atmChart.destroy();
+    atmChart = new Chart(document.getElementById('atmChart'), {
+      type:'line',
+      data:{labels:atmData.map(r=>fmtDate(r.date)), datasets:[{data:atmData.map(r=>r.atm), borderColor:'#888780', borderWidth:1.5, pointRadius:2, tension:.3, fill:false}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},color:tickColor},grid:{color:gridColor}},y:{ticks:{font:{size:9},color:tickColor},grid:{color:gridColor}}}}
+    });
+  } else atmWrap.style.display = 'none';
+}
+
+// ---- EXPORT ----
+function dl(content, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
+  a.download = filename; a.click();
+}
+
+function exportCSV() {
+  const data = getFiltered();
+  if(!data.length) { alert('Brak danych'); return; }
+  const hdr = 'Data,Godzina,Skurczowe (mmHg),Rozkurczowe (mmHg),Tętno (bpm),Atm. (hPa),Uwagi,Status\r\n';
+  const rows = data.map(r => { const st=getStatus(r.sys,r.dia); return [fmtDate(r.date),fmtTime(r.date),r.sys,r.dia,r.pulse,r.atm||'','"'+(r.notes||'')+'"',st.label].join(','); }).join('\r\n');
+  dl('\uFEFF'+hdr+rows, 'cisnienie_'+today()+'.csv', 'text/csv;charset=utf-8');
+}
+
+function exportXLS() {
+  const data = getFiltered();
+  if(!data.length) { alert('Brak danych'); return; }
+  const cols = ['Data','Godzina','Skurczowe (mmHg)','Rozkurczowe (mmHg)','Tętno (bpm)','Atm. (hPa)','Uwagi','Status'];
+  let xml = '<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Ciśnienie"><Table>';
+  xml += '<Row>'+cols.map(c=>`<Cell><Data ss:Type="String">${c}</Data></Cell>`).join('')+'</Row>';
+  data.forEach(r => {
+    const st=getStatus(r.sys,r.dia);
+    xml += '<Row>'+[fmtDate(r.date),fmtTime(r.date),r.sys,r.dia,r.pulse,r.atm||'',r.notes||'',st.label].map(c=>`<Cell><Data ss:Type="${typeof c==='number'?'Number':'String'}">${c}</Data></Cell>`).join('')+'</Row>';
+  });
+  xml += '</Table></Worksheet></Workbook>';
+  dl(xml, 'cisnienie_'+today()+'.xls', 'application/vnd.ms-excel');
+}
+
+// ---- INIT ----
+window.addEventListener('load', () => {
+  load();
+  restoreChips();
+  const city = localStorage.getItem(KEY_CITY);
+  if(city) document.getElementById('city-input').value = city;
+  document.getElementById('hdr-date').textContent = new Date().toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+});
+</script>
+</body>
+</html>
